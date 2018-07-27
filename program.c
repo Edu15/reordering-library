@@ -67,6 +67,51 @@
  *     11: IJCA-2017 journal test
  * *****************************************************
  */
+
+int main (int argc, char* argv[]) {
+	int opt, num_threads, algorithm, test_suite;
+	float bfs_chunk_size;
+	char* matrix_name = NULL;
+	test_scope scope;
+	test defs;
+	
+	while ((opt = getopt(argc, argv, "m:p:b:t:a:")) != -1)
+	{
+		switch (opt)
+		{
+			case 'm' :
+				matrix_name = optarg;
+				scope = TEST_CASE;
+				break;
+			case 'a' :
+				algorithm = atoi(optarg);
+				break;		
+				
+			case 'p':
+				num_threads = atoi(optarg);
+				break;
+				
+			case 'b':
+				bfs_chunk_size = atof(optarg);
+				break;
+				
+			case 't' :
+				test_suite = atoi(optarg);
+				scope = TEST_SUITE;
+				break;
+		}
+	}
+	
+	if (matrix_name == NULL) {
+	  printf("Entrada incorreta\n");
+	}
+	
+	pseudoperipheral_search_test(matrix_name);
+
+}
+
+
+/*
 int main (int argc, char* argv[]) {
   
 	int opt, num_threads, algorithm, test_suite;
@@ -178,4 +223,4 @@ int main (int argc, char* argv[]) {
 	}
 	
 	return 0;
-}
+}*/

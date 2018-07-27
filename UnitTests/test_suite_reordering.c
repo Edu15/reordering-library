@@ -609,3 +609,36 @@ void run_ijca2017_tests()
 		      num_matrices, size_set_nthreads, num_algorithms);
 }
 
+
+void pseudoperipheral_search_test(char* path_matrix_file) 
+{
+
+	double time;
+	MAT* matrix;
+	int* peripheral_nodes;
+	graph_diameter* diameter;
+	METAGRAPH* mgraph;
+
+	diameter         = NULL;
+	peripheral_nodes = NULL;
+
+	MATRIX_read_from_path(path_matrix_file, &matrix);
+
+	//MATRIX_write_gnuplot(matrix, "original_matrix");
+	
+	time = omp_get_wtime();
+	peripheral_nodes = get_pseudo_diameter_hsl(matrix);
+	printf("Tempo: %f\n", (omp_get_wtime() - time)/100.0);
+	printf("pseudoperifericos %d e %d\n", peripheral_nodes[START], peripheral_nodes[END]);
+	
+	///
+	
+	time = omp_get_wtime();
+	mgraph = GRAPH_parallel_build_METAGRAPH(matrix);
+	diameter = GRAPH_parallel_pseudodiameter(mgraph, VERTEX_BY_DEGREE);
+	//diameter = GRAPH_parallel_pseudodiameter(mgraph, HALF_SORTED);
+	//diameter = GRAPH_parallel_pseudodiameter(mgraph, FIVE_NON_ADJACENT);
+
+	printf("\nTempo: %f\n", (omp_get_wtime() - time)/100.0);
+	printf("Parallel - pseudoperifericos %d e %d\n", diameter->start, diameter->end);
+}

@@ -89,6 +89,7 @@ void   run_dissertation_medium_matrices 	();
 void   run_dissertation_smallest_matrices	();
 void   run_sbpo2017_tests			();
 void   run_ijca2017_tests			();
+void pseudoperipheral_search_test(char* path_matrix_file);
 
 
 #endif
