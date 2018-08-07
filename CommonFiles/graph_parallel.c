@@ -895,6 +895,7 @@ graph_diameter* GRAPH_parallel_pseudodiameter(const METAGRAPH* meta_graph, Shrin
 	GRAPH_parallel_destroy_BFS(forwardBFS);
 	GRAPH_parallel_destroy_BFS(reverseBFS);
 	
+	diameter->distance = local_diameter;
 	return diameter;
 }
 

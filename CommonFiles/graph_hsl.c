@@ -63,6 +63,7 @@ int* get_pseudo_diameter_hsl(const MAT* matrix)
 	
 	peripheral_nodes[0] = info[0] - 1;
 	peripheral_nodes[1] = info[1] - 1;
+	peripheral_nodes[2] = info[2] - 1;
 	
 	free(vars);
 	free(mask);

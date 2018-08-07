@@ -40,6 +40,7 @@ typedef struct
 {
 	int start;
 	int end;
+	int distance;
 } graph_diameter;
 
 

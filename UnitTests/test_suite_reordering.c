@@ -629,7 +629,7 @@ void pseudoperipheral_search_test(char* path_matrix_file)
 	time = omp_get_wtime();
 	peripheral_nodes = get_pseudo_diameter_hsl(matrix);
 	printf("Tempo: %f\n", (omp_get_wtime() - time)/100.0);
-	printf("pseudoperifericos %d e %d\n", peripheral_nodes[START], peripheral_nodes[END]);
+	printf("hls: %d e %d (dist = %d)\n", peripheral_nodes[START], peripheral_nodes[END], peripheral_nodes[2]);
 	
 	///
 	
@@ -640,5 +640,5 @@ void pseudoperipheral_search_test(char* path_matrix_file)
 	//diameter = GRAPH_parallel_pseudodiameter(mgraph, FIVE_NON_ADJACENT);
 
 	printf("\nTempo: %f\n", (omp_get_wtime() - time)/100.0);
-	printf("Parallel - pseudoperifericos %d e %d\n", diameter->start, diameter->end);
+	printf("Parallel: %d e %d (dist = %d)\n", diameter->start, diameter->end, diameter->distance);
 }
