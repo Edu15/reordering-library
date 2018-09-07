@@ -24,6 +24,24 @@ inline static int QUEUE_deque(int** queue, int size, int* head_index)
 	return value;
 }
 
+static void QUEUE_print(int* queue, const int size, int head_index, int tail_index) {
+	printf("Queue: [");
+	if (tail_index > head_index) {
+		for (int i = head_index; i < tail_index; i++) {
+			printf("%d ", queue[i]);
+		}
+	}
+	else if (tail_index < head_index) {
+		for (int i = head_index; i < size; i++) {
+			printf("%d ", queue[i]);
+		}
+		for (int i = 0; i < tail_index; i++) {
+			printf("%d ", queue[i]);
+		}
+	}
+	printf("]\n");
+}
+
 // Predicate (queue empty)
 #define QUEUE_empty(queue, head, tail) ((head) == (tail))
 
@@ -63,9 +81,11 @@ typedef struct
 } ARRAY_LIST;
 
 void 	ARRAY_LIST_init		  (ARRAY_LIST** array_list);
+int 	ARRAY_LIST_is_empty	  (ARRAY_LIST** array_list);
 void 	ARRAY_LIST_insert	  (ARRAY_LIST** array_list, int data);
 void 	ARRAY_LIST_add_desc_order (ARRAY_LIST** array_list, int data);
 int 	ARRAY_LIST_remove_first   (ARRAY_LIST** array_list);
 void 	ARRAY_LIST_destroy	  (ARRAY_LIST** array_list);
+void	ARRAY_LIST_print	  (ARRAY_LIST* array_list);
 
 #endif

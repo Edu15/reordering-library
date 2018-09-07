@@ -379,7 +379,13 @@ void MATRIX_printFULL (MAT* A)
 	for (i = 0; i < n; ++i)
 	{
 		for (j = 0; j < n; ++j)
-			printf ("%6.2lf", MATRIX_aij(A,i,j));
+			if (MATRIX_aij(A,i,j) == 0.0) {
+				printf("   .  "); 
+			}
+			else {
+				printf ("%6.2lf", MATRIX_aij(A,i,j));
+			}
+			
 		printf ("\n");
 	}
 }

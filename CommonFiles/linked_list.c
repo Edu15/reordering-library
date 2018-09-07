@@ -153,13 +153,14 @@ void LIST_print (LIST* L)
 		printf("warning: Empty LIST. Returning.. [LIST_print]\n");
 		return;
 	}
+	printf("[");
 	LIST *current = L;
 	while (current != NULL)
 	{
-		printf ("%d ", current->data);
+		printf (" %d ", current->data);
 		current = current->next;
 	}
-	printf("\n");
+	printf("]\n");
 }
 
 /*----------------------------------------------------------------------------
@@ -201,6 +202,17 @@ void ARRAY_LIST_init(ARRAY_LIST** array_list)
 	(*array_list)->first = 
 	(*array_list)->last  = NULL;
 	(*array_list)->size  = 0;
+}
+
+
+/*----------------------------------------------------------------------------
+ * Initialize an ARRAY_LIST structure. 
+ * 
+ * @since 08-08-2018
+ *--------------------------------------------------------------------------*/
+int ARRAY_LIST_is_empty(ARRAY_LIST** array_list) 
+{
+	return (*array_list)->size == 0;
 }
 
 
@@ -339,4 +351,15 @@ void ARRAY_LIST_destroy(ARRAY_LIST** array_list)
 {
 	LIST_destroy((*array_list)->first);
 	free(*array_list);
+}
+
+
+/*----------------------------------------------------------------------------
+ * Print elements of ARRAY_LIST structure. 
+ * 
+ * @since 09-07-2018
+ *--------------------------------------------------------------------------*/
+void ARRAY_LIST_print (ARRAY_LIST* array_list)  
+{
+	LIST_print(array_list->first);
 }

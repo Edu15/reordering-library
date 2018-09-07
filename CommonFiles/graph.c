@@ -42,6 +42,7 @@ int COMPARE_dist_degr_ASC (const void * a, const void * b)
 
 /*----------------------------------------------------------------------------
  * Return the degree of the vertex x in graph (i.e. matrix) A
+ * Edges are not counted.
  *--------------------------------------------------------------------------*/
 int GRAPH_degree (MAT* A, int x)
 {
@@ -56,7 +57,18 @@ int GRAPH_degree (MAT* A, int x)
 		exit(0);
 	}
 	
-	return A->IA[x+1] - A->IA[x]  /*Diagonal*/ - 1;
+	//return A->IA[x+1] - A->IA[x]  /*Diagonal*/ ;// - 1;
+
+    int i, num_edges = A->IA[x+1] - A->IA[x];
+
+    for (i = A->IA[x]; i < A->IA[x+1]; ++i)
+    {
+        if (A->JA[i] == x) // if has loop
+        {
+            return num_edges - 1;
+        }
+    }
+    return num_edges;
 }
 
 

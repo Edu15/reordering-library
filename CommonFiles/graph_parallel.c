@@ -149,26 +149,27 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 		int th_head, th_tail, active_head, active_tail, cache_head, cache_tail;
 		
 		#pragma omp for private(node)
-		for (node = 0; node < n_nodes; ++node) 
-			(*levels)[node] = INFINITY_LEVEL;
+		for (node = 0; node < n_nodes; ++node) {
+			(*levels)[node] = INFINITY_LEVEL; 
+		}
 		
 		#pragma omp sections 
 		{
 			#pragma omp section
-			(*levels)[root] = 0;
+			(*levels)[root] = 0; // O num do nivel raiz eh "0" 
 			
 			#pragma omp section
 			{
 				work_set = calloc(ws_size, sizeof(int)); 
 				tail = head = 0;
-				QUEUE_enque(&work_set, ws_size, &tail, root);
+				QUEUE_enque(&work_set, ws_size, &tail, root); // Adiciona o no "0" na fila para ser explorado
 			}
 			
 			#pragma omp section
-			has_unreached_nodes = n_nodes - 1;
+			has_unreached_nodes = n_nodes - 1; // Conta que um no ja foi verificado
 			
 			#pragma omp section
-			omp_init_lock(&lock);
+			omp_init_lock(&lock); // Inicializa um lock
 		}
 		
 		active_chunk_ws = calloc(n_nodes, sizeof(int));
@@ -177,38 +178,52 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 		cache_work_set = calloc(n_nodes, sizeof(int));
 		cache_head = cache_tail = 0;
 		
-		while ((!QUEUE_empty(work_set, head, tail)) || has_unreached_nodes > 0) 
+		while ((!QUEUE_empty(work_set, head, tail)) || has_unreached_nodes > 0) // Ha nos na fila para explorar ou ha nos que foram verificados
 		{
-			if (!QUEUE_empty(work_set, head, tail)) 
+			///
+			int tid = omp_get_thread_num();
+			//printf("%d - head: %d, tail: %d, unreached: %d\n", tid, head, tail, has_unreached_nodes);
+			//QUEUE_print(work_set, ws_size, head, tail);
+			///
+			
+			if (!QUEUE_empty(work_set, head, tail)) // Ha nos no work set
 			{
-				#pragma omp critical
+				#pragma omp critical // Executado por apenas um thread por vez
 				{
 					th_tail = tail;
 					th_head = head;	
-					size_chunk = ceil(percent_chunk * (th_tail - th_head));
+					size_chunk = ceil(percent_chunk * (th_tail - th_head)); // Pega uma fatia do total de nos a serem explorados
 					head += size_chunk;
 				}
 					
 				for (count_chunk = 0; count_chunk < size_chunk; ++count_chunk)
 				{
 					active_node = QUEUE_deque(&work_set, ws_size, &th_head);
-					QUEUE_enque(&active_chunk_ws, n_nodes, &active_tail, active_node);
+					QUEUE_enque(&active_chunk_ws, n_nodes, &active_tail, active_node); // Coloca os nos da fatia numa fila "ativa"
 				}
 			}
 			
 			// Fixed Point Iteration
-			while (!QUEUE_empty(active_chunk_ws, active_head, active_tail))
+			while (!QUEUE_empty(active_chunk_ws, active_head, active_tail)) // Ha nos na fila ativa
 			{
+				// Get one node from the queue to explore
 				active_node = QUEUE_deque(&active_chunk_ws, n_nodes, &active_head);
+				printf("Active node: %d\n", active_node);
 				
+				// Get neighboors
 				neighboors  = GRAPH_adjacent(mgraph->mat, active_node);
-				node_degree = mgraph->graph[active_node].degree;
-				level       = (*levels)[active_node] + 1;
+				node_degree = mgraph->graph[active_node].degree;	// TODO: NAO VINDO CORRETO
+				level       = (*levels)[active_node] + 1; // The number of the new level
+				
+				//printf("%d vizinhos\n", node_degree);
 				
 				for (count_nodes = 0; count_nodes < node_degree; ++count_nodes)
 				{
+					// Para cada vizinho
 					adj_node = neighboors[count_nodes];
+					printf(" %d ", adj_node);
 					
+					// Se vizinho nunca foi explorado
 					if (level < (*levels)[adj_node])
 					{
 						if ((*levels)[adj_node] == INFINITY_LEVEL) 
@@ -218,20 +233,24 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 						}
 						
 						#pragma omp critical
-						if (level < (*levels)[adj_node]) (*levels)[adj_node] = level;
+						if (level < (*levels)[adj_node]) 
+							(*levels)[adj_node] = level;
 						
+						// Adiciona vizinho em fila de cache
 						QUEUE_enque(&cache_work_set, n_nodes, &cache_tail, adj_node);
 					}
 				}
 				
 				free(neighboors);
 			}
+			printf("\n");
+			//QUEUE_print(cache_work_set, ws_size, cache_head, cache_tail);
 			
-			if (!QUEUE_empty(cache_work_set, cache_head, cache_tail))
+			if (!QUEUE_empty(cache_work_set, cache_head, cache_tail)) // Ha nos na fila de cache
 			{
 				omp_set_lock(&lock);
 				
-				while (!QUEUE_empty(cache_work_set, cache_head, cache_tail))
+				while (!QUEUE_empty(cache_work_set, cache_head, cache_tail)) // insere nos no cache para a fila de ativos
 				{
 					active_node = QUEUE_deque(&cache_work_set, n_nodes, &cache_head);
 					QUEUE_enque(&work_set, ws_size, &tail, active_node);
@@ -247,6 +266,12 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 	
 	omp_destroy_lock(&lock);
 	free(work_set);
+	
+	printf("\n LEVELS");
+	for (int i = 0; i < n_nodes; i++) {
+		printf(" %d ", (*levels)[i]);
+	}
+	printf("\n");
 }
 
 
@@ -458,7 +483,7 @@ void GRAPH_parallel_fixedpoint_sloan_BFS(METAGRAPH* mgraph, int root, const floa
 					
 				for (count_chunk = 0; count_chunk < size_chunk; ++count_chunk)
 				{
-					active_node = QUEUE_deque(&work_set, ws_size, &th_head);
+					active_node	 = QUEUE_deque(&work_set, ws_size, &th_head);
 					QUEUE_enque(&active_chunk_ws, n_nodes, &active_tail, active_node);
 				}
 			}
@@ -550,7 +575,7 @@ inline METAGRAPH* GRAPH_parallel_build_METAGRAPH(MAT* mat)
 	meta_graph->edges          = mat->nz;
 	meta_graph->lock_node      = malloc(size_graph * sizeof(omp_lock_t));
 	
-	#pragma omp parallel 
+	//#pragma omp parallel 
 	{
 		int node, local_node_min_degree, local_min_degree;
 	
@@ -565,6 +590,7 @@ inline METAGRAPH* GRAPH_parallel_build_METAGRAPH(MAT* mat)
 			meta_graph->graph[node].status     = UNREACHED;
 			meta_graph->graph[node].chnum      = 0;
 			meta_graph->graph[node].label      = node;
+			printf("degree: %d\n", GRAPH_degree(mat, node));
 			meta_graph->graph[node].degree     = GRAPH_degree(mat, node);
 			omp_init_lock(&meta_graph->lock_node[node]); 
 			
@@ -609,9 +635,9 @@ inline BFS* GRAPH_parallel_build_BFS(const METAGRAPH* mgraph, int root)
 	n_nodes = mgraph->size;
 	bfs     = malloc(sizeof(BFS));
 	levels  = calloc(n_nodes, sizeof(int));
-	
+	printf("COMECO\n");
 	GRAPH_parallel_fixedpoint_static_BFS(mgraph, root, &levels, BFS_PERCENT_CHUNK);
-	
+	printf("FIM\n");
 	max_level   = count_nodes_by_level(levels, n_nodes, &counts);
 	// decrementing two levels added to max_level by count_nodes_by_level
 	bfs->height = max_level - 2;
@@ -911,7 +937,7 @@ void inline GRAPH_parallel_destroy_METAGRAPH(METAGRAPH* mgraph)
 	
 	size_graph = mgraph->size;
 	
-	#pragma omp parallel for schedule(static) private(node)
+	//#pragma omp parallel for schedule(static) private(node)
 	for (node = 0; node < size_graph; ++node) 
 		omp_destroy_lock(&mgraph->lock_node[node]);
 	

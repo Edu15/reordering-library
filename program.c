@@ -104,10 +104,11 @@ int main (int argc, char* argv[]) {
 	
 	if (matrix_name == NULL) {
 	  printf("Entrada incorreta\n");
+	  return 0;
 	}
 	
 	pseudoperipheral_search_test(matrix_name);
-
+	return 0;
 }
 
 

@@ -83,7 +83,8 @@ GRAPH* 	  	      GRAPH_shrinking_strategy_vertex_by_degree (GRAPH* nodes, int* l
 GRAPH* 	  	      GRAPH_shrinking_strategy_five_non_adjacent(GRAPH* nodes, int* length);
 BFS*    	      GRAPH_parallel_build_BFS	       	        (const METAGRAPH* mgraph, int root);
 void 	 	      GRAPH_parallel_destroy_BFS	            (BFS* bfs);
-graph_diameter*   GRAPH_parallel_pseudodiameter             (const METAGRAPH* meta_graph, Shrinking_Strategy type);
+
+graph_diameter* GRAPH_gps_pseudoperipherals(const METAGRAPH* meta_graph);
 
 
 #endif

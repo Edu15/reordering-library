@@ -35,6 +35,8 @@
 #include "../Reorderings/sloan_parallel.h"
 #include "../Reorderings/sloan_boost.h"
 
+#include "../Pseudoperipherals/gps.h"
+
 
 #define TEST_EXEC_TIMES 1
 
