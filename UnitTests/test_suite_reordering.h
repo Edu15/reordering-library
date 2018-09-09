@@ -34,7 +34,6 @@
 #include "../Reorderings/sloan_hsl.h"
 #include "../Reorderings/sloan_parallel.h"
 #include "../Reorderings/sloan_boost.h"
-
 #include "../Pseudoperipherals/gps.h"
 
 

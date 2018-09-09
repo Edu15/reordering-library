@@ -1,37 +1,37 @@
 #include "gps.h"
 
 
-static GRAPH* (*strategy[3])(GRAPH* nodes, int* length) = {
+/*static GRAPH* (*strategy[3])(GRAPH* nodes, int* length) = {
 	GRAPH_shrinking_strategy_half_sorted,
 	GRAPH_shrinking_strategy_vertex_by_degree,
 	GRAPH_shrinking_strategy_five_non_adjacent
-};
+};*/
 
 
 graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 {
 	int iter = 3;
-	int u, v;
+	int v;
 	BFS* bfs;
 	int bfs_height;
+    int dimension = meta_graph->size;
+    int root = meta_graph->vertex_min_degree;
 	
 	graph_diameter* peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
 	graph_diameter* new_peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
-	
-	int dimention = meta_graph->size;
-	int root = meta_graph->vertex_min_degree;
-	
+    boolean* checked = (boolean*) malloc  (dimension * sizeof(boolean));
+    for (int i = 0; i < dimension; i++) {
+        checked[i] = FALSE;
+    }
+
 	ARRAY_LIST* exploration_ls;
 	ARRAY_LIST_init(&exploration_ls);
-	ARRAY_LIST_insert(&exploration_ls, root);
-	
-	boolean* checked = (boolean*) calloc  (dimention, sizeof(boolean));
-	
-	printf("\n");
-	ARRAY_LIST_print(exploration_ls);
+	ARRAY_LIST_insert(&exploration_ls, root); // Adiciona no raiz a fila
 	
 	while (iter > 0 && !ARRAY_LIST_is_empty(&exploration_ls)) 
 	{
+//        ARRAY_LIST_print(exploration_ls);
+
 		v = ARRAY_LIST_remove_first(&exploration_ls);
 		if (v == NON_ELEMENT) {
 			printf("Error: non element found\n");
@@ -40,22 +40,32 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 		
 		bfs = GRAPH_parallel_build_BFS(meta_graph, v);
 		checked[v] = TRUE;
-		
+//		GRAPH_parallel_print_BFS(bfs);
+
 		bfs_height = bfs->height;
 		int num_nodes_last_level = bfs->num_nodes_at_level[bfs_height];
-		//printf("%d nodes on last level\n", num_nodes_last_level);
 		GRAPH* last_level = (GRAPH*) bfs->vertices_at_level[bfs_height];
-		for (int i = 0; i < num_nodes_last_level; i++)
-		{
-			int w = last_level[i].index;
-			ARRAY_LIST_insert(&exploration_ls, w);
+		for (int i = 0; i < num_nodes_last_level; i++) {
+            int w = last_level[i].label;
+
+//            if (ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
+//            	printf("nao contem %d\n", w);
+//            } else {
+//            	printf("contem %d\n", w);
+//            }
+
+            if (checked[w] == FALSE && ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
+                ARRAY_LIST_insert(&exploration_ls, w);
+            }
+        }
+
+
+		if (num_nodes_last_level <= 0) {
+            printf("Error: last level empty\n");
+            exit(1);
 		}
-		
-		ARRAY_LIST_print(exploration_ls);
-		
-		//checar se nao eh NULL
-		new_peripherals->start = v;
-		new_peripherals->end = last_level[0].index;
+        new_peripherals->start = v;
+		new_peripherals->end = last_level[0].label;
 		new_peripherals->distance = bfs_height;
 		if (new_peripherals->distance > peripherals->distance) {
 			peripherals->start = new_peripherals->start;
@@ -64,9 +74,12 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 		}
 		
 		iter--;
+        GRAPH_parallel_destroy_BFS(bfs);
 	}
-	
+
+	free(checked);
 	free(new_peripherals);
+	ARRAY_LIST_destroy(&exploration_ls);
 	return peripherals;
 }
 

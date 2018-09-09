@@ -111,6 +111,17 @@ int* GRAPH_adjacent (MAT* A, int x)
  *--------------------------------------------------------------------------*/
 int* GRAPH_neighboors (MAT* A, int node, int degree)
 {
+    if (A->n == 0)
+    {
+        printf("error: GRAPH does not exist. Exiting.. [GRAPH_degree]\n");
+        exit(0);
+    }
+    if (node > A->n - 1 || node < 0)
+    {
+        printf("error: Vertex %d does not exist in this GRAPH. Exiting.. [GRAPH_adjacent]\n", node);
+        exit(0);
+    }
+
 	int i, k = 0;
 	
 	int *adj = malloc(degree * sizeof(int));

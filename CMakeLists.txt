@@ -48,7 +48,8 @@ add_executable(reordering-library program.c
 	./UnitTests/test_suite_matrix.c
 	./UnitTests/test_graph_parallel.c
 	./UnitTests/test_util.c
-	./UnitTests/test_linked_list.c)
+	./UnitTests/test_linked_list.c
+	./Pseudoperipherals/gps.c)
 	
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
@@ -65,3 +66,4 @@ add_subdirectory(CommonFiles)
 add_subdirectory(Matrices)
 add_subdirectory(Reorderings)
 add_subdirectory(UnitTests)
+add_subdirectory(Pseudoperipherals)

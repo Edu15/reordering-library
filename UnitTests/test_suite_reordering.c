@@ -612,27 +612,43 @@ void run_ijca2017_tests()
 
 void pseudoperipheral_search_test(char* path_matrix_file) 
 {
+    double time;
+    int* peripheral_nodes;
+    graph_diameter* diameter;
 
-	double time;
+    diameter         = NULL;
+    peripheral_nodes = NULL;
+
 	MAT* matrix;
-	int* peripheral_nodes;
-	graph_diameter* diameter;
 	METAGRAPH* mgraph;
-
-	diameter         = NULL;
-	peripheral_nodes = NULL;
-
+	BFS* bfs;
+	
 	MATRIX_read_from_path(path_matrix_file, &matrix);
+	//MATRIX_printFULL(matrix);
+    //MATRIX_write_gnuplot(matrix, "original_matrix");
 
-	//MATRIX_write_gnuplot(matrix, "original_matrix");
+	// HSL
 	
 	time = omp_get_wtime();
 	peripheral_nodes = get_pseudo_diameter_hsl(matrix);
 	printf("Tempo: %f\n", (omp_get_wtime() - time)/100.0);
 	printf("hls: %d e %d (dist = %d)\n", peripheral_nodes[START], peripheral_nodes[END], peripheral_nodes[2]);
-	
+	free(peripheral_nodes);
+
 	///
-	
+
+    mgraph = GRAPH_parallel_build_METAGRAPH(matrix);
+
+	// GPS
+
+    time = omp_get_wtime();
+    diameter = GPS_get_pseudoperipherals(mgraph);
+    printf("\nTempo: %f\n", (omp_get_wtime() - time)/100.0);
+    printf("Gps: %d e %d (dist = %d)\n", diameter->start, diameter->end, diameter->distance);
+    free(diameter);
+
+    // THIAGO
+
 	time = omp_get_wtime();
 	mgraph = GRAPH_parallel_build_METAGRAPH(matrix);
 	diameter = GRAPH_parallel_pseudodiameter(mgraph, VERTEX_BY_DEGREE);
@@ -641,4 +657,9 @@ void pseudoperipheral_search_test(char* path_matrix_file)
 
 	printf("\nTempo: %f\n", (omp_get_wtime() - time)/100.0);
 	printf("Parallel: %d e %d (dist = %d)\n", diameter->start, diameter->end, diameter->distance);
+    free(diameter);
+
+    ///
+
+	GRAPH_parallel_destroy_METAGRAPH(mgraph); // Clean metagraph and matrix
 }

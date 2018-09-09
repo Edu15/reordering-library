@@ -208,11 +208,11 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 			{
 				// Get one node from the queue to explore
 				active_node = QUEUE_deque(&active_chunk_ws, n_nodes, &active_head);
-				printf("Active node: %d\n", active_node);
+				//printf("Active node: %d\n", active_node);
 				
 				// Get neighboors
-				neighboors  = GRAPH_adjacent(mgraph->mat, active_node);
-				node_degree = mgraph->graph[active_node].degree;	// TODO: NAO VINDO CORRETO
+                node_degree = mgraph->graph[active_node].degree;
+				neighboors  = GRAPH_neighboors(mgraph->mat, active_node, node_degree);
 				level       = (*levels)[active_node] + 1; // The number of the new level
 				
 				//printf("%d vizinhos\n", node_degree);
@@ -221,7 +221,7 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 				{
 					// Para cada vizinho
 					adj_node = neighboors[count_nodes];
-					printf(" %d ", adj_node);
+					//printf(" %d ", adj_node);
 					
 					// Se vizinho nunca foi explorado
 					if (level < (*levels)[adj_node])
@@ -243,7 +243,7 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 				
 				free(neighboors);
 			}
-			printf("\n");
+			//printf("\n");
 			//QUEUE_print(cache_work_set, ws_size, cache_head, cache_tail);
 			
 			if (!QUEUE_empty(cache_work_set, cache_head, cache_tail)) // Ha nos na fila de cache
@@ -267,11 +267,11 @@ void GRAPH_parallel_fixedpoint_static_BFS(const METAGRAPH* mgraph, int root, int
 	omp_destroy_lock(&lock);
 	free(work_set);
 	
-	printf("\n LEVELS");
+	/*printf("\nLEVELS: ");
 	for (int i = 0; i < n_nodes; i++) {
 		printf(" %d ", (*levels)[i]);
 	}
-	printf("\n");
+	printf("\n");*/
 }
 
 
@@ -590,7 +590,7 @@ inline METAGRAPH* GRAPH_parallel_build_METAGRAPH(MAT* mat)
 			meta_graph->graph[node].status     = UNREACHED;
 			meta_graph->graph[node].chnum      = 0;
 			meta_graph->graph[node].label      = node;
-			printf("degree: %d\n", GRAPH_degree(mat, node));
+			//printf("degree: %d\n", GRAPH_degree(mat, node));
 			meta_graph->graph[node].degree     = GRAPH_degree(mat, node);
 			omp_init_lock(&meta_graph->lock_node[node]); 
 			
@@ -635,11 +635,21 @@ inline BFS* GRAPH_parallel_build_BFS(const METAGRAPH* mgraph, int root)
 	n_nodes = mgraph->size;
 	bfs     = malloc(sizeof(BFS));
 	levels  = calloc(n_nodes, sizeof(int));
-	printf("COMECO\n");
+
+    // Preenche o array "levels" com inteiros representando o nivel de cada no
 	GRAPH_parallel_fixedpoint_static_BFS(mgraph, root, &levels, BFS_PERCENT_CHUNK);
-	printf("FIM\n");
+
+    // Preeche o array "counts" com o num de nos por nivel. Os indices sao deslocados em uma unidade para a direita
 	max_level   = count_nodes_by_level(levels, n_nodes, &counts);
-	// decrementing two levels added to max_level by count_nodes_by_level
+
+	/*for (int i = 1; i < max_level; i++) {
+	    int j = i - 1;
+	    printf("nivel %d: %d\n", j, counts[i]);
+	}
+	printf("Max_level: %d\n", max_level);
+    printf("bfs->height: %d\n", max_level - 2);*/
+
+    // decrementing two levels added to max_level by count_nodes_by_level
 	bfs->height = max_level - 2;
 	bfs->width  = 0;
 	
@@ -681,8 +691,9 @@ inline BFS* GRAPH_parallel_build_BFS(const METAGRAPH* mgraph, int root)
 			#pragma omp critical
 			{
 				graph_node.label  = node;
-				graph_node.degree = mgraph->graph[node].degree; 
-				bfs->vertices_at_level[level][counts[count_level]-1] = graph_node;
+				graph_node.degree = mgraph->graph[node].degree;
+				// [num do nivel][nume de vertices no nivel - 1]
+				bfs->vertices_at_level[level][counts[count_level]-1] = graph_node; // ????? graph_node dinamicamente alocado
 				counts[count_level]--;
 			}
 		}
@@ -698,6 +709,24 @@ inline BFS* GRAPH_parallel_build_BFS(const METAGRAPH* mgraph, int root)
 	}
 	
 	return bfs;
+}
+
+
+inline BFS* GRAPH_parallel_print_BFS(const BFS* bfs) {
+
+	int bfs_height = bfs->height;
+
+	for (int level = 0; level <= bfs_height; level++) {
+		int num_nodes_at_level = bfs->num_nodes_at_level[level];
+		GRAPH* nodes_at_level = (GRAPH*) bfs->vertices_at_level[level];
+
+		printf("level %d: ", level);
+		for (int v = 0; v < num_nodes_at_level; v++) {
+			int w = nodes_at_level[v].label;
+			printf("%d ", w);
+		}
+		printf("\n");
+	}
 }
 
 

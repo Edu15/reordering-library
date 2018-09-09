@@ -87,5 +87,6 @@ void 	ARRAY_LIST_add_desc_order (ARRAY_LIST** array_list, int data);
 int 	ARRAY_LIST_remove_first   (ARRAY_LIST** array_list);
 void 	ARRAY_LIST_destroy	  (ARRAY_LIST** array_list);
 void	ARRAY_LIST_print	  (ARRAY_LIST* array_list);
+int		ARRAY_LIST_contains	  (ARRAY_LIST* array_list, int value);
 
 #endif

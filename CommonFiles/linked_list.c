@@ -150,10 +150,10 @@ void LIST_print (LIST* L)
 {
 	if (L == NULL)
 	{
-		printf("warning: Empty LIST. Returning.. [LIST_print]\n");
+		printf("[ ], the list is empty\n");
 		return;
 	}
-	printf("[");
+	printf("\n[");
 	LIST *current = L;
 	while (current != NULL)
 	{
@@ -362,4 +362,22 @@ void ARRAY_LIST_destroy(ARRAY_LIST** array_list)
 void ARRAY_LIST_print (ARRAY_LIST* array_list)  
 {
 	LIST_print(array_list->first);
+}
+
+
+int	ARRAY_LIST_contains (ARRAY_LIST* array_list, int value) {
+	if (array_list->first == NULL)
+	{
+		return 0;
+	}
+
+	LIST *current = array_list->first;
+	while (current != NULL)
+	{
+		if (current->data == value) {
+			return 1;
+		}
+		current = current->next;
+	}
+	return 0;
 }
