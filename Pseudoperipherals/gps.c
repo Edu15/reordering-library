@@ -10,7 +10,8 @@
 
 graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 {
-	int iter = 3;
+	//printf("\n");
+	int iter = 2;
 	int v;
 	BFS* bfs;
 	int bfs_height;
@@ -33,21 +34,25 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 //        ARRAY_LIST_print(exploration_ls);
 
 		v = ARRAY_LIST_remove_first(&exploration_ls);
+//        printf("root = %d\n", v);
 		if (v == NON_ELEMENT) {
-			printf("Error: non element found\n");
+			//printf("Error: non element found\n");
 			exit(1);
 		}
-		
-		bfs = GRAPH_parallel_build_BFS(meta_graph, v);
+
+//		bfs = GRAPH_parallel_build_BFS(meta_graph, v);
+        bfs = GPS_build_BFS(meta_graph, v);
 		checked[v] = TRUE;
 //		GRAPH_parallel_print_BFS(bfs);
 
 		bfs_height = bfs->height;
+//		printf(" height = %d\n", bfs_height);
 		int num_nodes_last_level = bfs->num_nodes_at_level[bfs_height];
 		GRAPH* last_level = (GRAPH*) bfs->vertices_at_level[bfs_height];
+//        printf("Ultimo nivel:\n");
 		for (int i = 0; i < num_nodes_last_level; i++) {
             int w = last_level[i].label;
-
+//            printf("%d, ", w);
 //            if (ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
 //            	printf("nao contem %d\n", w);
 //            } else {
@@ -58,10 +63,10 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
                 ARRAY_LIST_insert(&exploration_ls, w);
             }
         }
-
+//        printf("\n");
 
 		if (num_nodes_last_level <= 0) {
-            printf("Error: last level empty\n");
+            //printf("Error: last level empty\n");
             exit(1);
 		}
         new_peripherals->start = v;
@@ -82,6 +87,171 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 	ARRAY_LIST_destroy(&exploration_ls);
 	return peripherals;
 }
+
+BFS* GPS_build_BFS(const METAGRAPH* mgraph, int root)
+{
+    int n_nodes, max_level;
+    BFS* bfs;
+    int* levels;
+    int* counts;
+
+    n_nodes = mgraph->size;
+    bfs     = malloc(sizeof(BFS));
+	levels = calloc(n_nodes, sizeof(int));
+
+	GPS_BFS(mgraph, root, &levels);
+
+    // Preeche o array "counts" com o num de nos por nivel. Os indices sao deslocados em uma unidade para a direita
+    max_level   = count_nodes_by_level(levels, n_nodes, &counts);
+
+    // decrementing two levels added to max_level by count_nodes_by_level
+    bfs->height = max_level - 2;
+    bfs->width  = 0;
+
+    GRAPH graph_node;
+    int level, count_level, node;
+    bfs->vertices_at_level  = calloc((bfs->height + 1), sizeof(GRAPH*));
+    bfs->num_nodes_at_level = calloc((bfs->height + 1), sizeof(int));
+
+    // Allocating memory for BFS structure
+    for (count_level = 1; count_level < max_level; ++count_level)
+    {
+        level = count_level - 1;
+
+        bfs->vertices_at_level[level]  = calloc(counts[count_level], sizeof(GRAPH));
+        bfs->num_nodes_at_level[level] = counts[count_level];
+
+        if (counts[count_level] > bfs->width)
+            bfs->width = counts[count_level];
+    }
+
+    // Filling BFS structure with respective datas
+    for (node = 0; node < n_nodes; ++node)
+    {
+        level       = levels[node];
+        count_level = level + 1;
+
+        graph_node.label  = node;
+        graph_node.degree = mgraph->graph[node].degree;
+        // [num do nivel][nume de vertices no nivel - 1]
+        bfs->vertices_at_level[level][counts[count_level]-1] = graph_node; // ????? graph_node dinamicamente alocado
+        counts[count_level]--;
+    }
+
+    free(levels);
+    free(counts);
+
+    return bfs;
+}
+
+int GPS_count_nodes_by_level(const int* levels, const int n_nodes, int** counts) {
+    int node, count_thread, max_level, level, id_thread;
+    int** local_count;
+    int* local_max;
+
+    max_level = 0;
+    return 0;
+}
+
+
+void GPS_BFS(const METAGRAPH* mgraph, int root, int** levels)
+{
+    int node, n_nodes, tail, head, node_degree, active_node, level, count_nodes, adj_node, has_unreached_nodes;
+    int* work_set;
+    int ws_size;
+    int* neighboors;
+    BFS* bfs;
+
+    n_nodes = mgraph->size;
+    ws_size = n_nodes+1; // oversizing estimate
+
+    bfs     = malloc(sizeof(BFS));
+
+    for (node = 0; node < n_nodes; ++node) {
+        (*levels)[node] = INFINITY_LEVEL;
+    }
+
+    (*levels)[root] = 0; // O num do nivel raiz eh "0"
+    tail = head = 0;
+
+    work_set = calloc(ws_size, sizeof(int));
+    QUEUE_enque(&work_set, ws_size, &tail, root); // Adiciona o no "0" na fila para ser explorado
+    has_unreached_nodes = n_nodes - 1; // Conta que um no ja foi verificado
+
+    while (!QUEUE_empty(work_set, head, tail)) {
+        active_node = QUEUE_deque(&work_set, ws_size, &head);
+        //printf("Active node: %d\n", active_node);
+
+        // Get neighboors
+        node_degree = mgraph->graph[active_node].degree;
+        neighboors  = GRAPH_neighboors(mgraph->mat, active_node, node_degree);
+        level       = (*levels)[active_node] + 1; // The number of the new level
+        //printf("%d vizinhos\n", node_degree);
+
+        for (count_nodes = 0; count_nodes < node_degree; ++count_nodes) {
+            // Para cada vizinho
+            adj_node = neighboors[count_nodes];
+            //printf(" %d ", adj_node);
+
+            // Se vizinho nunca foi exploradog
+            if (level < (*levels)[adj_node]) {
+                if ((*levels)[adj_node] == INFINITY_LEVEL) {
+                    --has_unreached_nodes;
+                }
+
+                (*levels)[adj_node] = level;
+
+                // Adiciona vizinho em fila de cache
+                QUEUE_enque(&work_set, n_nodes, &tail, adj_node);
+            }
+        }
+
+        free(neighboors);
+    }
+
+    free(work_set);
+
+//    printf("\nLEVELS: ");
+//	for (int i = 0; i < n_nodes; i++) {
+//		printf(" %d ", (*levels)[i]);
+//	}
+//	printf("\n");
+}
+
+
+
+/*
+graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
+{
+	printf("\n");
+	int u, v;
+	BFS* bfs;
+	int bfs_height_u, bfs_height_v;
+	int dimension = meta_graph->size;
+	u = meta_graph->vertex_min_degree;
+
+	graph_diameter* peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
+
+	bfs = GRAPH_parallel_build_BFS(meta_graph, u);
+	bfs_height_u = bfs->height;
+	printf(" height = %d\n", bfs_height_u);
+	GRAPH* last_level = (GRAPH*) bfs->vertices_at_level[bfs_height_u];
+	v = last_level[0].label;
+	GRAPH_parallel_destroy_BFS(bfs);
+
+	bfs = GRAPH_parallel_build_BFS(meta_graph, v);
+	bfs_height_v = bfs->height;
+	printf(" height = %d\n", bfs_height_v);
+	last_level = (GRAPH*) bfs->vertices_at_level[bfs_height_v];
+
+
+	peripherals->start = v;
+	peripherals->end = last_level[0].label;
+	peripherals->distance = bfs_height_v;
+
+	GRAPH_parallel_destroy_BFS(bfs);
+	return peripherals;
+}*/
 
 
 

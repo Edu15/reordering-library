@@ -7,7 +7,7 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(PROFILER_ENABLED OFF)
 
 set(SCOREP_PROFILER "scorep")
-set(COMPILER_FLAGS "-Wall -fopenmp -o3")
+set(COMPILER_FLAGS "-g -Wall -fopenmp -o3")
 set(CXX_COMPILER_FLAGS "g++ ${COMPILER_FLAGS}")
 set(C_COMPILER_FLAGS "gcc ${COMPILER_FLAGS}")
 
