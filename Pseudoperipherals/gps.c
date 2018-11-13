@@ -102,7 +102,7 @@ BFS* GPS_build_BFS(const METAGRAPH* mgraph, int root)
 	GPS_BFS(mgraph, root, &levels);
 
     // Preeche o array "counts" com o num de nos por nivel. Os indices sao deslocados em uma unidade para a direita
-    max_level   = count_nodes_by_level(levels, n_nodes, &counts);
+    max_level = GPS_count_nodes_by_level(levels, n_nodes, &counts);
 
     // decrementing two levels added to max_level by count_nodes_by_level
     bfs->height = max_level - 2;
@@ -145,17 +145,47 @@ BFS* GPS_build_BFS(const METAGRAPH* mgraph, int root)
 }
 
 int GPS_count_nodes_by_level(const int* levels, const int n_nodes, int** counts) {
-    int node, count_thread, max_level, level, id_thread;
-    int** local_count;
-    int* local_max;
+    int node, count_thread, level;
+    int* count;
+    int max_level;
 
     max_level = 0;
-    return 0;
+
+    count = calloc(n_nodes, sizeof(int));
+
+    for (node = 0; node < n_nodes; ++node)
+    {
+        ++count[levels[node]];
+        max_level = maximun(max_level, levels[node]);
+    }
+
+    max_level += 2;
+
+    *counts = calloc(max_level, sizeof(int));
+    (*counts)[0] = 0;
+
+    // Atribui ao array externo e desloca para direita
+    for (level = max_level; level > 0; --level)
+    {
+        (*counts)[level] += count[level-1];
+    }
+
+    free(count);
+
+//    printf("\nCONTAGEM DE NIVEIS: ");
+//	for (int i = 0; i < max_level; i++) {
+//		printf(" %d ", (*counts)[i]);
+//	}
+//	printf("\n");
+
+    return max_level;
 }
 
 
 void GPS_BFS(const METAGRAPH* mgraph, int root, int** levels)
 {
+    //double time = omp_get_wtime();
+
     int node, n_nodes, tail, head, node_degree, active_node, level, count_nodes, adj_node, has_unreached_nodes;
     int* work_set;
     int ws_size;
@@ -216,6 +246,7 @@ void GPS_BFS(const METAGRAPH* mgraph, int root, int** levels)
 //		printf(" %d ", (*levels)[i]);
 //	}
 //	printf("\n");
+    //printf("Tempo com BFS: %lf seg\n", (omp_get_wtime() - time));
 }
 
 
