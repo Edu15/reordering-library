@@ -1,90 +1,60 @@
 #include "gps.h"
 
-
-/*static GRAPH* (*strategy[3])(GRAPH* nodes, int* length) = {
-	GRAPH_shrinking_strategy_half_sorted,
-	GRAPH_shrinking_strategy_vertex_by_degree,
-	GRAPH_shrinking_strategy_five_non_adjacent
-};*/
-
-
 graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 {
-	//printf("\n");
-	int iter = 2;
-	int v;
-	BFS* bfs;
-	int bfs_height;
-    int dimension = meta_graph->size;
-    int root = meta_graph->vertex_min_degree;
+	BFS* forward_bfs;
+	int bfs_height, num_nodes_last_level, root;
+    GRAPH* last_level;
 	
 	graph_diameter* peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
-	graph_diameter* new_peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
-    boolean* checked = (boolean*) malloc  (dimension * sizeof(boolean));
-    for (int i = 0; i < dimension; i++) {
-        checked[i] = FALSE;
+
+    root = meta_graph->vertex_min_degree;
+//	bfs = GRAPH_parallel_build_BFS(meta_graph, v);
+    forward_bfs = GPS_build_BFS(meta_graph, root);
+
+    bfs_height = forward_bfs->height;
+    num_nodes_last_level = forward_bfs->num_nodes_at_level[bfs_height];
+    last_level = (GRAPH*) forward_bfs->vertices_at_level[bfs_height];
+
+    // Update peripheral vertices
+    peripherals->start = root;
+    peripherals->end = last_level[0].label;
+    peripherals->distance = bfs_height;
+
+    int num_cores = 4;
+    int parallel_threads = num_cores;
+    if (num_nodes_last_level < parallel_threads) {
+        parallel_threads = num_nodes_last_level;
+    }
+    //int* nodes_for_parallel_bfs = (int*) calloc(parallel_threads, sizeof(int));
+    BFS** backward_bfs = (BFS**) calloc(parallel_threads, sizeof(BFS*));
+
+    int i;
+    #pragma omp parallel
+    {
+        #pragma omp for private(i)
+        for (i = 0; i < parallel_threads; i++) {
+            int w = last_level[i].label;
+            backward_bfs[i] = GPS_build_BFS(meta_graph, w);
+            //printf("acabou!\n");
+        }
     }
 
-	ARRAY_LIST* exploration_ls;
-	ARRAY_LIST_init(&exploration_ls);
-	ARRAY_LIST_insert(&exploration_ls, root); // Adiciona no raiz a fila
-	
-	while (iter > 0 && !ARRAY_LIST_is_empty(&exploration_ls)) 
-	{
-//        ARRAY_LIST_print(exploration_ls);
+    //printf("AAAAA \n");
 
-		v = ARRAY_LIST_remove_first(&exploration_ls);
-//        printf("root = %d\n", v);
-		if (v == NON_ELEMENT) {
-			//printf("Error: non element found\n");
-			exit(1);
-		}
-
-//		bfs = GRAPH_parallel_build_BFS(meta_graph, v);
-        bfs = GPS_build_BFS(meta_graph, v);
-		checked[v] = TRUE;
-//		GRAPH_parallel_print_BFS(bfs);
-
-		bfs_height = bfs->height;
-//		printf(" height = %d\n", bfs_height);
-		int num_nodes_last_level = bfs->num_nodes_at_level[bfs_height];
-		GRAPH* last_level = (GRAPH*) bfs->vertices_at_level[bfs_height];
-//        printf("Ultimo nivel:\n");
-		for (int i = 0; i < num_nodes_last_level; i++) {
-            int w = last_level[i].label;
-//            printf("%d, ", w);
-//            if (ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
-//            	printf("nao contem %d\n", w);
-//            } else {
-//            	printf("contem %d\n", w);
-//            }
-
-            if (checked[w] == FALSE && ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
-                ARRAY_LIST_insert(&exploration_ls, w);
-            }
+    for (i = 0; i < parallel_threads; i++) {
+        int height = backward_bfs[i]->height;
+        //printf("height: %d\n", height);
+        if (height > peripherals->distance) {
+            peripherals->start = backward_bfs[i]->vertices_at_level[0][0].label;
+            peripherals->end = backward_bfs[i]->vertices_at_level[height][0].label;
+            peripherals->distance = height;
         }
-//        printf("\n");
+        GRAPH_parallel_destroy_BFS(backward_bfs[i]);
+    }
 
-		if (num_nodes_last_level <= 0) {
-            //printf("Error: last level empty\n");
-            exit(1);
-		}
-        new_peripherals->start = v;
-		new_peripherals->end = last_level[0].label;
-		new_peripherals->distance = bfs_height;
-		if (new_peripherals->distance > peripherals->distance) {
-			peripherals->start = new_peripherals->start;
-			peripherals->end = new_peripherals->end;
-			peripherals->distance = new_peripherals->distance;
-		}
-		
-		iter--;
-        GRAPH_parallel_destroy_BFS(bfs);
-	}
+    GRAPH_parallel_destroy_BFS(forward_bfs);
 
-	free(checked);
-	free(new_peripherals);
-	ARRAY_LIST_destroy(&exploration_ls);
 	return peripherals;
 }
 
@@ -145,7 +115,7 @@ BFS* GPS_build_BFS(const METAGRAPH* mgraph, int root)
 }
 
 int GPS_count_nodes_by_level(const int* levels, const int n_nodes, int** counts) {
-    int node, count_thread, level;
+    int node, level;
     int* count;
     int max_level;
 
@@ -165,9 +135,9 @@ int GPS_count_nodes_by_level(const int* levels, const int n_nodes, int** counts)
     (*counts)[0] = 0;
 
     // Atribui ao array externo e desloca para direita
-    for (level = max_level; level > 0; --level)
+    for (level = 0; level < max_level-1; ++level)
     {
-        (*counts)[level] += count[level-1];
+        (*counts)[level+1] += count[level];
     }
 
     free(count);
@@ -190,12 +160,9 @@ void GPS_BFS(const METAGRAPH* mgraph, int root, int** levels)
     int* work_set;
     int ws_size;
     int* neighboors;
-    BFS* bfs;
 
     n_nodes = mgraph->size;
     ws_size = n_nodes+1; // oversizing estimate
-
-    bfs     = malloc(sizeof(BFS));
 
     for (node = 0; node < n_nodes; ++node) {
         (*levels)[node] = INFINITY_LEVEL;
@@ -250,132 +217,84 @@ void GPS_BFS(const METAGRAPH* mgraph, int root, int** levels)
 }
 
 
-
 /*
-graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
+ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
 {
-	printf("\n");
-	int u, v;
+	//printf("\n");
+	int iter = 2;
+	int v;
 	BFS* bfs;
-	int bfs_height_u, bfs_height_v;
-	int dimension = meta_graph->size;
-	u = meta_graph->vertex_min_degree;
+	int bfs_height;
+    int dimension = meta_graph->size;
+    int root = meta_graph->vertex_min_degree;
 
 	graph_diameter* peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
+	graph_diameter* new_peripherals = (graph_diameter*) calloc(1, sizeof(graph_diameter));
+    boolean* checked = (boolean*) malloc  (dimension * sizeof(boolean));
+    for (int i = 0; i < dimension; i++) {
+        checked[i] = FALSE;
+    }
 
-	bfs = GRAPH_parallel_build_BFS(meta_graph, u);
-	bfs_height_u = bfs->height;
-	printf(" height = %d\n", bfs_height_u);
-	GRAPH* last_level = (GRAPH*) bfs->vertices_at_level[bfs_height_u];
-	v = last_level[0].label;
-	GRAPH_parallel_destroy_BFS(bfs);
+	ARRAY_LIST* exploration_ls;
+	ARRAY_LIST_init(&exploration_ls);
+	ARRAY_LIST_insert(&exploration_ls, root); // Adiciona no raiz a fila
 
-	bfs = GRAPH_parallel_build_BFS(meta_graph, v);
-	bfs_height_v = bfs->height;
-	printf(" height = %d\n", bfs_height_v);
-	last_level = (GRAPH*) bfs->vertices_at_level[bfs_height_v];
-
-
-	peripherals->start = v;
-	peripherals->end = last_level[0].label;
-	peripherals->distance = bfs_height_v;
-
-	GRAPH_parallel_destroy_BFS(bfs);
-	return peripherals;
-}*/
-
-
-
-
-/*graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
-{
-	// Create two breadth first search engines
-	BFS* forwardBFS;
-	BFS* reverseBFS;
-	graph_diameter* diameter;
-	int local_diameter, size_cand_set, min_width, cand, candidate, swap;
-	GRAPH* candidate_set;
-	int shrink_type = FIVE_NON_ADJACENT;
-	
-	diameter = malloc(sizeof(graph_diameter));
-	forwardBFS = reverseBFS = NULL;
-	
-	// Initialize start and end vertices of pseudo-diameter
-	diameter->start = meta_graph->vertex_min_degree;
-	diameter->end   = NON_VERTEX;
-	
-	do 
+	while (iter > 0 && !ARRAY_LIST_is_empty(&exploration_ls))
 	{
-		if (forwardBFS != NULL) GRAPH_parallel_destroy_BFS(forwardBFS);
-		
-		// do BFS starting at start node 'start'
-		forwardBFS = GRAPH_parallel_build_BFS(meta_graph, diameter->start);
-		
-		// get candidate set of end nodes
-		local_diameter = forwardBFS->height;
-		candidate_set  = forwardBFS->vertices_at_level[local_diameter];
-		size_cand_set  = 1;//forwardBFS->num_nodes_at_level[local_diameter];
-		
-		// shrink candidate set to a manageable number
-		if (shrink_type == FIVE_NON_ADJACENT)
-		{
-			for (cand = 0; cand < size_cand_set; ++cand)
-				candidate_set[cand].neighboors = GRAPH_adjacent(meta_graph->mat, candidate_set[cand].label);
+//        ARRAY_LIST_print(exploration_ls);
+
+		v = ARRAY_LIST_remove_first(&exploration_ls);
+//        printf("root = %d\n", v);
+		if (v == NON_ELEMENT) {
+			//printf("Error: non element found\n");
+			exit(1);
 		}
-		
-		candidate_set = strategy[shrink_type](candidate_set, &size_cand_set);
-		
-		min_width = INT_MAX;
-		
-		for (cand = 0; cand < size_cand_set; ++cand)
-		{
-			candidate = candidate_set[cand].label;
-			
-			// do BFS from each candidate
-			if (reverseBFS != NULL) GRAPH_parallel_destroy_BFS(reverseBFS);
-			reverseBFS = GRAPH_parallel_build_BFS(meta_graph, candidate);
-			
-			if (reverseBFS->width < min_width)
-			{
-				if (reverseBFS->height > local_diameter)
-				{
-					// reverseBFS is better than the forwardBFS
-					// reset algorithm with candidate as new start
-					diameter->start = candidate;
-					diameter->end   = NON_VERTEX;
-					cand = size_cand_set; // break
-				}
-				else
-				{
-					// reverseBFS is narrower than any others
-					// make this new end node
-					min_width = reverseBFS->width;
-					diameter->end = candidate;
-				}
-			}
+
+//		bfs = GRAPH_parallel_build_BFS(meta_graph, v);
+        bfs = GPS_build_BFS(meta_graph, v);
+		checked[v] = TRUE;
+//		GRAPH_parallel_print_BFS(bfs);
+
+		bfs_height = bfs->height;
+//		printf(" height = %d\n", bfs_height);
+		int num_nodes_last_level = bfs->num_nodes_at_level[bfs_height];
+		GRAPH* last_level = (GRAPH*) bfs->vertices_at_level[bfs_height];
+//        printf("Ultimo nivel:\n");
+		for (int i = 0; i < num_nodes_last_level; i++) {
+            int w = last_level[i].label;
+//            printf("%d, ", w);
+//            if (ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
+//            	printf("nao contem %d\n", w);
+//            } else {
+//            	printf("contem %d\n", w);
+//            }
+
+            if (checked[w] == FALSE && ARRAY_LIST_contains(exploration_ls, w) == FALSE) {
+                ARRAY_LIST_insert(&exploration_ls, w);
+            }
+        }
+//        printf("\n");
+
+		if (num_nodes_last_level <= 0) {
+            //printf("Error: last level empty\n");
+            exit(1);
 		}
-		
-		if (shrink_type == FIVE_NON_ADJACENT)
-		{
-			for (cand = 0; cand < size_cand_set; ++cand)
-				free(candidate_set[cand].neighboors);
+        new_peripherals->start = v;
+		new_peripherals->end = last_level[0].label;
+		new_peripherals->distance = bfs_height;
+		if (new_peripherals->distance > peripherals->distance) {
+			peripherals->start = new_peripherals->start;
+			peripherals->end = new_peripherals->end;
+			peripherals->distance = new_peripherals->distance;
 		}
-		
-		free(candidate_set);
-		
-	} while (diameter->end == NON_VERTEX);
-	
-	// swap start & end if the reverseBFS is narrower than forwardBFS
-	if (forwardBFS->width > reverseBFS->width)
-	{
-		swap = diameter->start;
-		diameter->start = diameter->end;
-		diameter->end   = swap;
+
+		iter--;
+        GRAPH_parallel_destroy_BFS(bfs);
 	}
-	
-	GRAPH_parallel_destroy_BFS(forwardBFS);
-	GRAPH_parallel_destroy_BFS(reverseBFS);
-	
-	diameter->distance = local_diameter;
-	return diameter;
-}*/
+
+	free(checked);
+	free(new_peripherals);
+	ARRAY_LIST_destroy(&exploration_ls);
+	return peripherals;
+}
+ */

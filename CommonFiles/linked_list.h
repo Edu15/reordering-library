@@ -24,7 +24,7 @@ inline static int QUEUE_deque(int** queue, int size, int* head_index)
 	return value;
 }
 
-static void QUEUE_print(int* queue, const int size, int head_index, int tail_index) {
+/*static void QUEUE_print(int* queue, const int size, int head_index, int tail_index) {
 	printf("Queue: [");
 	if (tail_index > head_index) {
 		for (int i = head_index; i < tail_index; i++) {
@@ -40,7 +40,7 @@ static void QUEUE_print(int* queue, const int size, int head_index, int tail_ind
 		}
 	}
 	printf("]\n");
-}
+}*/
 
 // Predicate (queue empty)
 #define QUEUE_empty(queue, head, tail) ((head) == (tail))
