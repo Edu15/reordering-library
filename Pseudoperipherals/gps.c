@@ -21,12 +21,12 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
     peripherals->end = last_level[0].label;
     peripherals->distance = bfs_height;
 
-    int num_cores = 4;
-    int parallel_threads = num_cores;
-    if (num_nodes_last_level < parallel_threads) {
-        parallel_threads = num_nodes_last_level;
-    }
-    //int* nodes_for_parallel_bfs = (int*) calloc(parallel_threads, sizeof(int));
+    int num_processing_cores = 4;
+    int* shrinked_set = (int*) calloc(num_processing_cores, sizeof(int));
+    int shrinked_set_size = num_processing_cores;
+
+    shrinked_set = shrink_last_level(meta_graph, num_nodes_last_level, last_level, num_processing_cores, &shrinked_set_size);
+    int parallel_threads = shrinked_set_size;
     BFS** backward_bfs = (BFS**) calloc(parallel_threads, sizeof(BFS*));
 
     int i;
@@ -53,9 +53,126 @@ graph_diameter* GPS_get_pseudoperipherals(const METAGRAPH* meta_graph)
         GRAPH_parallel_destroy_BFS(backward_bfs[i]);
     }
 
+    free(shrinked_set);
     GRAPH_parallel_destroy_BFS(forward_bfs);
 
 	return peripherals;
+}
+
+int* shrink_last_level(const METAGRAPH* mgraph, int num_nodes_last_level, GRAPH* last_level, int num_cores, int* shrinked_set_size)  {
+
+    int i = 0;
+    int* shrinked_set;
+    (*shrinked_set_size) = num_cores;
+
+    // Se o ultimo nivel ja tem poucos vertices
+    if (num_nodes_last_level <= num_cores) {
+        (*shrinked_set_size) = num_nodes_last_level;
+        shrinked_set = (int*) calloc(num_nodes_last_level, sizeof(int));
+        for (i = 0; i < num_nodes_last_level; i++) {
+            shrinked_set[i] = last_level[i].label;
+        }
+        printf("%d vertices no ultimo nivel. Nao precisa de shrink.\n", num_nodes_last_level);
+        return shrinked_set;
+    }
+
+    // Senao reduza o numero de vertices
+    shrinked_set = (int*) calloc(num_cores, sizeof(int));
+    int smaller_degree_node = last_level[0].label;
+    int node_degree;
+    int smaller_degree = INFINITY_LEVEL;
+    ARRAY_LIST* shrinked_list;
+    ARRAY_LIST_init(&shrinked_list);
+
+    // Itera calculando o grau de cada no no ultimo nivel. Encontra o de menor grau.
+    // Tambem adicional os nos a uma lista.
+    for (i = 0; i < num_nodes_last_level; ++i) {
+        int w = last_level[i].label;
+        node_degree = mgraph->graph[w].degree;
+        if (node_degree < smaller_degree) {
+            smaller_degree = node_degree;
+            smaller_degree_node = w;
+        }
+        ARRAY_LIST_insert(&shrinked_list, w);
+    }
+
+    //ARRAY_LIST_print(shrinked_list);
+
+    int* neighboors;
+    int active_node = smaller_degree_node;
+
+    int ws_size, ng_size;
+    ws_size = ng_size = mgraph->size;
+    int* work_set = calloc(ws_size, sizeof(int));
+    int* neighbor_set = calloc(ng_size, sizeof(int));
+    int ws_tail, ws_head, ng_tail, ng_head, j;
+    ws_tail = ws_head = 0;
+    ng_tail = ng_head = 0;
+    QUEUE_enque(&work_set, ws_size, &ws_tail, smaller_degree_node);
+
+    // No maximo tres analises de vizinhanca para nao pesar demais
+    int count = 3;
+    do {
+        //printf("--> work_set %d\n", count);
+        //QUEUE_print(work_set, ws_size, ws_head, ws_tail);
+        // para cada no ativo
+        while (ws_tail - ws_head > 0) {
+            active_node = QUEUE_deque(&work_set, ws_size, &ws_head);
+            node_degree = mgraph->graph[active_node].degree;
+            neighboors  = GRAPH_neighboors(mgraph->mat, active_node, node_degree);
+            for (j = 0; j < node_degree; ++j) {
+                QUEUE_enque(&neighbor_set, ng_size, &ng_tail, neighboors[j]);
+            }
+        }
+        //QUEUE_print(neighbor_set, ng_size, ng_head, ng_tail);
+
+
+        while (ng_tail - ng_head > 0) {
+            int n = QUEUE_deque(&neighbor_set, ng_size, &ng_head);
+
+            // Se conjunto ja contem, remove
+            if (ARRAY_LIST_contains(shrinked_list, n)) {
+                ARRAY_LIST_remove(&shrinked_list, n);
+                //printf("  %d removido, lista agora tem tam %d", n, shrinked_list->size);
+                //ARRAY_LIST_print(shrinked_list);
+                //printf("\n");
+
+                // Se o conjunto ja reduziu para o valor desejado
+                if (shrinked_list->size < num_cores) {
+                    break;
+                }
+            } //else { // Senao deixa ele ser no ativo em nova busca
+                QUEUE_enque(&work_set, ws_size, &ws_tail, n);
+                //printf("  %d enqued", n);
+            //}
+        }
+        count--;
+    } while (count > 0 && shrinked_list->size > num_cores && !QUEUE_empty(work_set, ws_head, ws_tail));
+
+    // Copia os nos do conjunto reduzido e readiciona o de menor grau (removido a remocao dos vizinhos)
+    shrinked_set[0] = smaller_degree_node;
+    for (i = 0; i < num_cores-1; ++i) {
+        int x = ARRAY_LIST_remove_first(&shrinked_list);
+        shrinked_set[i+1] = x;
+    }
+
+    ARRAY_LIST_destroy(&shrinked_list);
+    free(work_set);
+    free(neighbor_set);
+
+    /*printf("\nULTIMO NIVEL: ");
+	for (i = 0; i < num_nodes_last_level; i++) {
+		printf(" %d ", last_level[i].label);
+	}
+	printf("\n");
+
+    printf("\nULTIMO NIVEL REDUZIDO: ");
+    for (i = 0; i < num_cores; i++) {
+        printf(" %d ", shrinked_set[i]);
+    }
+    printf("\n\n");
+*/
+    return shrinked_set;
 }
 
 BFS* GPS_build_BFS(const METAGRAPH* mgraph, int root)
@@ -198,7 +315,7 @@ void GPS_BFS(const METAGRAPH* mgraph, int root, int** levels)
 
                 (*levels)[adj_node] = level;
 
-                // Adiciona vizinho em fila de cache
+                // Adiciona vizinho
                 QUEUE_enque(&work_set, n_nodes, &tail, adj_node);
             }
         }

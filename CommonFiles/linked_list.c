@@ -41,6 +41,35 @@ LIST* LIST_insert_IF_NOT_EXIST (LIST* L, int x)
 	return L;
 }
 
+
+LIST* LIST_insert (LIST* L, int x)
+{
+    /* creating new list element */
+    if (L == NULL)
+    {
+        LIST *N = (LIST*) malloc (sizeof(LIST));
+        N->data = x;
+        N->next = NULL;
+        N->size = 1;
+        N->value = 0;
+        return N;
+    }
+
+    LIST *P;
+
+    for (P = L; P->next != NULL; P = P->next);
+
+    LIST *N = (LIST*) malloc (sizeof(LIST));
+    N->data = x;
+    N->next = NULL;
+    N->value = 0;
+
+    P->next = N;
+    L->size++;
+
+    return L;
+}
+
 /*----------------------------------------------------------------------------
  * Add the value val to the element cell of the LIST list 
  *--------------------------------------------------------------------------*/
@@ -57,7 +86,7 @@ LIST* LIST_add_IF_NOT_EXIST(LIST* list, int node, int val)
 		new_cell->data = node;
 		new_cell->next = NULL;
 		new_cell->value = val;
-		new_cell->next = NULL;
+		new_cell->size = 1;
 		
 		return new_cell;
 	}
@@ -171,6 +200,28 @@ int LIST_first (LIST* L)
 	return L->data;
 }
 
+int LIST_get (LIST* L, int index)
+{
+    if (L == NULL)
+    {
+        printf("LIST_get warning: the list is empty\n");
+        return -1;
+    }
+    LIST *current = L;
+    int count = 0;
+    while (current != NULL && count != index)
+    {
+        current = current->next;
+        count++;
+    }
+    if (current == NULL) {
+        printf("LIST_get warning: index %d not found. Size = %d\n", index, L->size);
+        return -1;
+    }
+    return current->data;
+
+}
+
 /*----------------------------------------------------------------------------
  * Destroy the LIST structure from memory
  *--------------------------------------------------------------------------*/
@@ -199,7 +250,7 @@ void LIST_destroy (LIST* L)
 void ARRAY_LIST_init(ARRAY_LIST** array_list)
 {
 	*array_list = malloc(sizeof(ARRAY_LIST));
-	(*array_list)->first = 
+	(*array_list)->first = NULL;
 	(*array_list)->last  = NULL;
 	(*array_list)->size  = 0;
 }
@@ -320,7 +371,10 @@ int ARRAY_LIST_remove_first(ARRAY_LIST** array_list)
 {
 	int data;
 	LIST* garbage;
-	
+	if (array_list == NULL) {
+       return -NON_ELEMENT;
+	}
+
 	if ((*array_list)->first == NULL)
 	{
 		data = -NON_ELEMENT;
@@ -339,6 +393,58 @@ int ARRAY_LIST_remove_first(ARRAY_LIST** array_list)
 	}
 	
 	return data;
+}
+
+int ARRAY_LIST_remove(ARRAY_LIST** array_list, int value)
+{
+
+    if ((*array_list)->first == NULL)
+    {
+        return -1;
+    }
+
+    LIST* L = (*array_list)->first;
+    // lista vazia
+    if (L == NULL)
+    {
+        printf("warning: Empty LIST. Returning.. [LIST_remove]\n");
+        return -1;
+    }
+    LIST* Q = NULL;
+    LIST* P = L;
+    while (P != NULL && P->data != value)
+    {
+        Q = P;
+        P = P->next;
+    }
+
+    // valor nao encontrado
+    if (P == NULL)
+    {
+        printf ("warning: Element %d does not exist in this LIST. Returning.. [LIST_remove]\n",value);
+        return -1;
+    }
+
+    (*array_list)->size--;
+
+    // remove primeiro elem
+    if (Q == NULL) {
+        L = P->next;
+        (*array_list)->first = L;
+        if (P == (*array_list)->last) {
+            (*array_list)->last = NULL;
+        }
+    }
+    else {
+        Q->next = P->next;
+        if (P == (*array_list)->last) {
+            (*array_list)->last = Q;
+            Q->next = NULL;
+        }
+    }
+
+    free(P);
+    return 1;
 }
 
 

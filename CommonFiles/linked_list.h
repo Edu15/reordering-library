@@ -24,7 +24,7 @@ inline static int QUEUE_deque(int** queue, int size, int* head_index)
 	return value;
 }
 
-/*static void QUEUE_print(int* queue, const int size, int head_index, int tail_index) {
+static void QUEUE_print(int* queue, const int size, int head_index, int tail_index) {
 	printf("Queue: [");
 	if (tail_index > head_index) {
 		for (int i = head_index; i < tail_index; i++) {
@@ -40,7 +40,7 @@ inline static int QUEUE_deque(int** queue, int size, int* head_index)
 		}
 	}
 	printf("]\n");
-}*/
+}
 
 // Predicate (queue empty)
 #define QUEUE_empty(queue, head, tail) ((head) == (tail))
@@ -57,12 +57,13 @@ typedef struct node
 	struct node* next;
 } LIST;
 
-
 LIST*    LIST_insert_IF_NOT_EXIST (LIST* L, int x);
+LIST* 	 LIST_insert 			  (LIST* L, int x);
 LIST*    LIST_remove              (LIST* L, int x);
 LIST*    LIST_remove_first        (LIST* L);
 void     LIST_print               (LIST* L);
 int      LIST_first               (LIST* L);
+int      LIST_get                 (LIST* L, int index);
 void     LIST_destroy             (LIST* L);
 LIST*    LIST_add_IF_NOT_EXIST	  (LIST* list, int node, int val);
 int   	 LIST_contains 		  (LIST* list, int element);
@@ -85,6 +86,7 @@ int 	ARRAY_LIST_is_empty	  (ARRAY_LIST** array_list);
 void 	ARRAY_LIST_insert	  (ARRAY_LIST** array_list, int data);
 void 	ARRAY_LIST_add_desc_order (ARRAY_LIST** array_list, int data);
 int 	ARRAY_LIST_remove_first   (ARRAY_LIST** array_list);
+int 	ARRAY_LIST_remove     (ARRAY_LIST** array_list, int value);
 void 	ARRAY_LIST_destroy	  (ARRAY_LIST** array_list);
 void	ARRAY_LIST_print	  (ARRAY_LIST* array_list);
 int		ARRAY_LIST_contains	  (ARRAY_LIST* array_list, int value);
